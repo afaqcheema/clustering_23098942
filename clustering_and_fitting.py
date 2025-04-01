@@ -1,121 +1,390 @@
-"""
-This is the template file for the clustering and fitting assignment.
-You will be expected to complete all the sections and
-make this a fully working, documented file.
-You should NOT change any function, file or variable names,
- if they are given to you here.
-Make use of the functions presented in the lectures
-and ensure your code is PEP-8 compliant, including docstrings.
-Fitting should be done with only 1 target variable and 1 feature variable,
-likewise, clustering should be done with only 2 variables.
-"""
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+
+def load_data(filename):
+    """Load and preprocess the dataset"""
+    df = pd.read_csv(filename)
+    # Clean data - remove rows with missing values in key columns
+    df = df.dropna(subset=['total_vaccinations', 'people_vaccinated', 'people_fully_vaccinated'])
+    # Convert date to datetime
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+def relational_plot(df):
+    """Create a relational plot showing vaccination trends"""
+    plt.figure(figsize=(12, 6))
+    sns.lineplot(
+        data=df.groupby('date')[['people_vaccinated', 'people_fully_vaccinated']].sum().reset_index(),
+        x='date',
+        y='people_vaccinated',
+        label='At least one dose'
+    )
+    sns.lineplot(
+        data=df.groupby('date')[['people_vaccinated', 'people_fully_vaccinated']].sum().reset_index(),
+        x='date',
+        y='people_fully_vaccinated',
+        label='Fully vaccinated'
+    )
+    plt.title('Global COVID-19 Vaccination Progress')
+    plt.xlabel('Date')
+    plt.ylabel('Number of People (billions)')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('relational_plot.png')
+    plt.close()
+
+def categorical_plot(df):
+    """Create a categorical plot showing vaccination by continent"""
+    plt.figure(figsize=(12, 6))
+    # Get latest data for each country
+    latest = df.sort_values('date').groupby('location').last()
+    # Group by continent
+    continent_data = latest.groupby('continent')['people_vaccinated_per_hundred'].mean().sort_values()
+    
+    continent_data.plot(kind='barh', color=sns.color_palette('viridis'))
+    plt.title('Average Vaccination Rate by Continent (people per hundred)')
+    plt.xlabel('People Vaccinated per Hundred')
+    plt.ylabel('Continent')
+    plt.tight_layout()
+    plt.savefig('categorical_plot.png')
+    plt.close()
+
+def statistical_plot(df):
+    """Create a statistical plot showing distribution of vaccination rates"""
+    plt.figure(figsize=(12, 6))
+    latest = df.sort_values('date').groupby('location').last()
+    
+    sns.boxplot(
+        data=latest,
+        x='continent',
+        y='people_vaccinated_per_hundred',
+        palette='viridis'
+    )
+    plt.title('Distribution of Vaccination Rates by Continent')
+    plt.xlabel('Continent')
+    plt.ylabel('People Vaccinated per Hundred')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig('statistical_plot.png')
+    plt.close()
+
+def analyze_statistical_moments(df):
+    """Calculate and discuss the four statistical moments"""
+    latest = df.sort_values('date').groupby('location').last()
+    vaccination_rates = latest['people_vaccinated_per_hundred'].dropna()
+    
+    print("\nFour Statistical Moments of Vaccination Rates:")
+    
+    # 1. Mean (First Moment)
+    mean = np.mean(vaccination_rates)
+    print(f"1. Mean: {mean:.2f} - The average vaccination rate across all countries")
+    
+    # 2. Variance (Second Moment)
+    variance = np.var(vaccination_rates)
+    print(f"2. Variance: {variance:.2f} - Measures how spread out the vaccination rates are")
+    
+    # 3. Skewness (Third Moment)
+    skewness = stats.skew(vaccination_rates)
+    print(f"3. Skewness: {skewness:.2f} - Positive value indicates right-skewed distribution (few countries with very high rates)")
+    
+    # 4. Kurtosis (Fourth Moment)
+    kurtosis = stats.kurtosis(vaccination_rates)
+    print(f"4. Kurtosis: {kurtosis:.2f} - Positive value indicates heavier tails than normal distribution (more outliers)")
+
+def main():
+    # Download data from: https://github.com/owid/covid-19-data/blob/master/public/data/vaccinations/vaccinations.csv
+    df = load_data('vaccinations.csv')
+    
+    # Generate plots
+    relational_plot(df)
+    categorical_plot(df)
+    statistical_plot(df)
+    
+    # Analyze statistical moments
+    analyze_statistical_moments(df)
+    
+    print("\nPlots saved as relational_plot.png, categorical_plot.png, and statistical_plot.png")
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.stats as ss
 import seaborn as sns
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
 
 
 def plot_relational_plot(df):
-    fig, ax = plt.subplots()
+    """Create a relational plot showing sepal length vs width"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(
+        data=df,
+        x='sepal_length',
+        y='sepal_width',
+        hue='species',
+        style='species',
+        s=100
+    )
+    plt.title('Sepal Length vs Width by Species')
+    plt.xlabel('Sepal Length (cm)')
+    plt.ylabel('Sepal Width (cm)')
+    plt.legend(title='Species')
     plt.savefig('relational_plot.png')
+    plt.close()
     return
 
 
 def plot_categorical_plot(df):
-    fig, ax = plt.subplots()
+    """Create a categorical plot showing petal length distribution"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(
+        data=df,
+        x='species',
+        y='petal_length',
+        palette='viridis'
+    )
+    plt.title('Petal Length Distribution by Species')
+    plt.xlabel('Species')
+    plt.ylabel('Petal Length (cm)')
     plt.savefig('categorical_plot.png')
+    plt.close()
     return
 
 
 def plot_statistical_plot(df):
-    fig, ax = plt.subplots()
+    """Create a statistical plot showing feature correlations"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    numeric_df = df.select_dtypes(include=[np.number])
+    sns.heatmap(
+        numeric_df.corr(),
+        annot=True,
+        cmap='coolwarm',
+        vmin=-1,
+        vmax=1
+    )
+    plt.title('Feature Correlation Heatmap')
     plt.savefig('statistical_plot.png')
+    plt.close()
     return
 
 
 def statistical_analysis(df, col: str):
-    mean =
-    stddev =
-    skew =
-    excess_kurtosis =
+    """Calculate statistical moments for a given column"""
+    data = df[col].dropna()
+    mean = np.mean(data)
+    stddev = np.std(data)
+    skew = ss.skew(data)
+    excess_kurtosis = ss.kurtosis(data)
     return mean, stddev, skew, excess_kurtosis
 
 
 def preprocessing(df):
-    # You should preprocess your data in this function and
-    # make use of quick features such as 'describe', 'head/tail' and 'corr'.
+    """Preprocess the data with basic checks"""
+    print("\nData Overview:")
+    print(df.head())
+    
+    print("\nBasic Statistics:")
+    print(df.describe())
+    
+    print("\nCorrelation Matrix:")
+    print(df.select_dtypes(include=[np.number]).corr())
+    
+    # No missing values in Iris dataset, but good practice to check
+    print("\nMissing Values:")
+    print(df.isnull().sum())
+    
     return df
 
 
 def writing(moments, col):
-    print(f'For the attribute {col}:')
+    """Interpret and print statistical moments"""
+    print(f'\nFor the attribute {col}:')
     print(f'Mean = {moments[0]:.2f}, '
           f'Standard Deviation = {moments[1]:.2f}, '
           f'Skewness = {moments[2]:.2f}, and '
           f'Excess Kurtosis = {moments[3]:.2f}.')
-    # Delete the following options as appropriate for your data.
-    # Not skewed and mesokurtic can be defined with asymmetries <-2 or >2.
-    print('The data was right/left/not skewed and platy/meso/leptokurtic.')
+    
+    # Interpret skewness
+    if moments[2] > 0.5:
+        skew_text = "right skewed"
+    elif moments[2] < -0.5:
+        skew_text = "left skewed"
+    else:
+        skew_text = "not skewed"
+    
+    # Interpret kurtosis
+    if moments[3] > 1:
+        kurt_text = "leptokurtic"
+    elif moments[3] < -1:
+        kurt_text = "platykurtic"
+    else:
+        kurt_text = "mesokurtic"
+    
+    print(f'The data was {skew_text} and {kurt_text}.')
     return
 
 
 def perform_clustering(df, col1, col2):
-
+    """Perform K-means clustering on selected columns"""
+    
     def plot_elbow_method():
-        fig, ax = plt.subplots()
+        """Plot elbow method to determine optimal clusters"""
+        inertias = []
+        for k in range(1, 10):
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans.fit(scaled_data)
+            inertias.append(kmeans.inertia_)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plt.plot(range(1, 10), inertias, marker='o')
+        plt.title('Elbow Method for Optimal k')
+        plt.xlabel('Number of clusters')
+        plt.ylabel('Inertia')
         plt.savefig('elbow_plot.png')
+        plt.close()
         return
 
     def one_silhouette_inertia():
-        _score =
-        _inertia =
+        """Calculate silhouette score and inertia for optimal clusters"""
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        labels = kmeans.fit_predict(scaled_data)
+        _score = silhouette_score(scaled_data, labels)
+        _inertia = kmeans.inertia_
         return _score, _inertia
 
     # Gather data and scale
-
+    data = df[[col1, col2]].values
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(data)
+    
     # Find best number of clusters
-    one_silhouette_inertia()
+    score, inertia = one_silhouette_inertia()
+    print(f"\nClustering Metrics - Silhouette Score: {score:.3f}, Inertia: {inertia:.3f}")
     plot_elbow_method()
-
-    # Get cluster centers
-    return labels, data, xkmeans, ykmeans, cenlabels
+    
+    # Perform final clustering
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    labels = kmeans.fit_predict(scaled_data)
+    centers = scaler.inverse_transform(kmeans.cluster_centers_)
+    
+    return labels, data, centers[:, 0], centers[:, 1], kmeans.labels_
 
 
 def plot_clustered_data(labels, data, xkmeans, ykmeans, centre_labels):
-    fig, ax = plt.subplots()
+    """Plot the clustered data with cluster centers"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    scatter = ax.scatter(
+        data[:, 0],
+        data[:, 1],
+        c=labels,
+        cmap='viridis',
+        s=100,
+        alpha=0.7
+    )
+    ax.scatter(
+        xkmeans,
+        ykmeans,
+        c='red',
+        marker='X',
+        s=200,
+        label='Cluster Centers'
+    )
+    plt.title('K-means Clustering of Iris Dataset')
+    plt.xlabel('Sepal Length (cm)')
+    plt.ylabel('Petal Length (cm)')
+    plt.legend()
     plt.savefig('clustering.png')
+    plt.close()
     return
 
 
 def perform_fitting(df, col1, col2):
-    # Gather data and prepare for fitting
-
-    # Fit model
-
-    # Predict across x
-    return data, x, y
+    """Perform polynomial regression fitting"""
+    # Gather data
+    x = df[col1].values.reshape(-1, 1)
+    y = df[col2].values
+    
+    # Fit 2nd degree polynomial model
+    model = make_pipeline(
+        PolynomialFeatures(degree=2),
+        LinearRegression()
+    )
+    model.fit(x, y)
+    
+    # Predict across x range
+    x_fit = np.linspace(x.min(), x.max(), 100).reshape(-1, 1)
+    y_fit = model.predict(x_fit)
+    
+    return np.column_stack((x, y)), x_fit, y_fit
 
 
 def plot_fitted_data(data, x, y):
-    fig, ax = plt.subplots()
+    """Plot the fitted polynomial regression"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.scatter(
+        data[:, 0],
+        data[:, 1],
+        c='blue',
+        label='Actual Data'
+    )
+    ax.plot(
+        x,
+        y,
+        c='red',
+        linewidth=3,
+        label='Fitted Curve'
+    )
+    plt.title('Polynomial Regression Fit')
+    plt.xlabel('Sepal Length (cm)')
+    plt.ylabel('Petal Length (cm)')
+    plt.legend()
     plt.savefig('fitting.png')
+    plt.close()
     return
 
 
 def main():
-    df = pd.read_csv('data.csv')
+    # Load Iris dataset
+    df = sns.load_dataset('iris')
+    
+    # Preprocess data
     df = preprocessing(df)
-    col = '<your chosen column for analysis>'
+    
+    # Choose column for statistical analysis
+    col = 'petal_length'
+    
+    # Generate plots
     plot_relational_plot(df)
     plot_statistical_plot(df)
     plot_categorical_plot(df)
+    
+    # Perform statistical analysis
     moments = statistical_analysis(df, col)
     writing(moments, col)
-    clustering_results = perform_clustering(df, '<your chosen x data>', '<your chosen y data>')
+    
+    # Perform clustering (using sepal_length and petal_length)
+    clustering_results = perform_clustering(df, 'sepal_length', 'petal_length')
     plot_clustered_data(*clustering_results)
-    fitting_results = perform_fitting(df, '<your chosen x data>', '<your chosen y data>')
+    
+    # Perform fitting (using sepal_length to predict petal_length)
+    fitting_results = perform_fitting(df, 'sepal_length', 'petal_length')
     plot_fitted_data(*fitting_results)
+    
+    print("\nAll plots saved successfully.")
     return
 
 
