@@ -10,6 +10,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 
+df = pd.read_csv('data.csv')
+
 
 def plot_relational_plot(df):
     """Create a relational plot showing sepal length vs width"""
