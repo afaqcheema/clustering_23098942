@@ -81,17 +81,12 @@ def preprocessing(df):
     """Preprocess the data with basic checks"""
     print("\nData Overview:")
     print(df.head())
-    
     print("\nBasic Statistics:")
     print(df.describe())
-    
     print("\nCorrelation Matrix:")
     print(df.select_dtypes(include=[np.number]).corr())
-    
-    # No missing values in Iris dataset, but good practice to check
     print("\nMissing Values:")
     print(df.isnull().sum())
-    
     return df
 
 
@@ -102,7 +97,6 @@ def writing(moments, col):
           f'Standard Deviation = {moments[1]:.2f}, '
           f'Skewness = {moments[2]:.2f}, and '
           f'Excess Kurtosis = {moments[3]:.2f}.')
-    
     # Interpret skewness
     if moments[2] > 0.5:
         skew_text = "right skewed"
@@ -110,7 +104,6 @@ def writing(moments, col):
         skew_text = "left skewed"
     else:
         skew_text = "not skewed"
-    
     # Interpret kurtosis
     if moments[3] > 1:
         kurt_text = "leptokurtic"
@@ -118,14 +111,12 @@ def writing(moments, col):
         kurt_text = "platykurtic"
     else:
         kurt_text = "mesokurtic"
-    
     print(f'The data was {skew_text} and {kurt_text}.')
     return
 
 
 def perform_clustering(df, col1, col2):
     """Perform K-means clustering on selected columns"""
-    
     def plot_elbow_method():
         """Plot elbow method to determine optimal clusters"""
         inertias = []
@@ -133,7 +124,6 @@ def perform_clustering(df, col1, col2):
             kmeans = KMeans(n_clusters=k, random_state=42)
             kmeans.fit(scaled_data)
             inertias.append(kmeans.inertia_)
-        
         fig, ax = plt.subplots(figsize=(10, 6))
         plt.plot(range(1, 10), inertias, marker='o')
         plt.title('Elbow Method for Optimal k')
@@ -150,22 +140,18 @@ def perform_clustering(df, col1, col2):
         _score = silhouette_score(scaled_data, labels)
         _inertia = kmeans.inertia_
         return _score, _inertia
-
     # Gather data and scale
     data = df[[col1, col2]].values
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
-    
     # Find best number of clusters
     score, inertia = one_silhouette_inertia()
     print(f"\nClustering Metrics - Silhouette Score: {score:.3f}, Inertia: {inertia:.3f}")
     plot_elbow_method()
-    
     # Perform final clustering
     kmeans = KMeans(n_clusters=3, random_state=42)
     labels = kmeans.fit_predict(scaled_data)
     centers = scaler.inverse_transform(kmeans.cluster_centers_)
-    
     return labels, data, centers[:, 0], centers[:, 1], kmeans.labels_
 
 
@@ -202,18 +188,15 @@ def perform_fitting(df, col1, col2):
     # Gather data
     x = df[col1].values.reshape(-1, 1)
     y = df[col2].values
-    
     # Fit 2nd degree polynomial model
     model = make_pipeline(
         PolynomialFeatures(degree=2),
         LinearRegression()
     )
     model.fit(x, y)
-    
     # Predict across x range
     x_fit = np.linspace(x.min(), x.max(), 100).reshape(-1, 1)
     y_fit = model.predict(x_fit)
-    
     return np.column_stack((x, y)), x_fit, y_fit
 
 
@@ -243,35 +226,26 @@ def plot_fitted_data(data, x, y):
 
 
 def main():
-    # Load Iris dataset
     df = sns.load_dataset('iris')
-    
     # Preprocess data
     df = preprocessing(df)
-    
     # Choose column for statistical analysis
     col = 'petal_length'
-    
     # Generate plots
     plot_relational_plot(df)
     plot_statistical_plot(df)
     plot_categorical_plot(df)
-    
     # Perform statistical analysis
     moments = statistical_analysis(df, col)
     writing(moments, col)
-    
     # Perform clustering (using sepal_length and petal_length)
     clustering_results = perform_clustering(df, 'sepal_length', 'petal_length')
     plot_clustered_data(*clustering_results)
-    
     # Perform fitting (using sepal_length to predict petal_length)
     fitting_results = perform_fitting(df, 'sepal_length', 'petal_length')
     plot_fitted_data(*fitting_results)
-    
     print("\nAll plots saved successfully.")
     return
-
 
 if __name__ == '__main__':
     main()
